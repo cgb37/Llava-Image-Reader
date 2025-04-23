@@ -1,0 +1,59 @@
+name: Generate Changelog
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+    paths-ignore:
+      - 'CHANGELOG.md'
+
+jobs:
+  if_merged:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Important: This ensures all history is fetched for changelog generation
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm install -g conventional-changelog-cli
+          
+      - name: Generate changelog
+        run: |
+          # Check if CHANGELOG.md exists, create it if not
+          if [ ! -f CHANGELOG.md ]; then
+            touch CHANGELOG.md
+          fi
+          
+          # Generate the changelog content based on staging to main changes
+          # The -r 0 flag regenerates the entire changelog from scratch
+          conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+          
+          # Optional: You can add a version tag here if you use semantic versioning
+          # git tag -a v$(node -p "require('./package.json').version") -m "Release v$(node -p "require('./package.json').version")"
+      
+      - name: Commit and push if there are changes
+        run: |
+          git config --local user.email "cgb37@miami.edu"
+          git config --local user.name "Charles Brown-Roberts"
+          
+          # Check if there are changes to commit
+          if git diff --exit-code --quiet CHANGELOG.md; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog [skip ci]"
+          git push
